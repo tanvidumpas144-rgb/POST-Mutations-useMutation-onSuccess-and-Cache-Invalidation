@@ -22,20 +22,44 @@
 // Verify in DevTools → Network: a POST /api/threads (201) is followed immediately
 // by a GET /api/threads refetch, and the new thread appears at the top with no reload.
 // ─────────────────────────────────────────────────────────────
+
 import { useState } from "react";
+
+import {
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
+
 import { createThread } from "../services/threads.service";
 
 export default function CreateThreadForm() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
 
-  // TODO: const queryClient = useQueryClient();
-  // TODO: const mutation = useMutation({ mutationFn: createThread, onSuccess, onError });
+  // Get the TanStack Query client
+  const queryClient = useQueryClient();
+
+  // Create mutation
+  const mutation = useMutation({
+    mutationFn: createThread,
+
+    onSuccess: () => {
+      // Refetch the threads list
+      queryClient.invalidateQueries({
+        queryKey: ["threads"],
+      });
+
+      // Reset the form
+      setTitle("");
+      setBody("");
+    },
+  });
 
   function handleSubmit(e) {
     e.preventDefault();
-    // TODO: replace this with mutation.mutate({ title, body })
-    console.log("submit", { title, body });
+
+    // Send the new thread
+    mutation.mutate({ title, body });
   }
 
   return (
@@ -45,14 +69,22 @@ export default function CreateThreadForm() {
         onChange={(e) => setTitle(e.target.value)}
         placeholder="Title"
       />
+
       <textarea
         value={body}
         onChange={(e) => setBody(e.target.value)}
         placeholder="What's on your mind?"
       />
-      {/* TODO: disable while mutation.isPending; show "Posting…" as the label */}
-      <button type="submit">Post thread</button>
-      {/* TODO: render <p className="err">{mutation.error.message}</p> when mutation.isError */}
+
+      {/* Disable button while mutation is running */}
+      <button type="submit" disabled={mutation.isPending}>
+        {mutation.isPending ? "Posting…" : "Post thread"}
+      </button>
+
+      {/* Show error message if mutation fails */}
+      {mutation.isError && (
+        <p className="err">{mutation.error.message}</p>
+      )}
     </form>
   );
 }
